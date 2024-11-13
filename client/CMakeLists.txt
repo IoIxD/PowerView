@@ -1,4 +1,4 @@
-project(power_remote_client)
+project(PowerView)
 
 cmake_minimum_required(VERSION 3.28)
 

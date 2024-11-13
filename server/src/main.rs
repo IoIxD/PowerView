@@ -15,13 +15,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut buf = String::new();
                 stream.read_to_string(&mut buf)?;
 
+                // TODO: Dynamically assigned port
+                // Program launching
                 match buf.as_str() {
                     "ping" => {
                         let mut ip = stream.peer_addr()?.clone();
                         ip.set_port(9091);
                         if let Ok(mut socket) = TcpStream::connect(ip) {
                             write!(socket, "Pong!\n")?;
-                            println!("ponged");
                         };
                     }
                     _ => {
