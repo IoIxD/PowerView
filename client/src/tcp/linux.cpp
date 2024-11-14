@@ -2,11 +2,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <format>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 #ifdef __linux__
 #include "tcp.hpp"
@@ -55,7 +57,8 @@ void LinuxTCP::connect(std::string addr) {
             sizeof s);
 }
 
-void LinuxTCP::listen() {
+void LinuxTCP::listen(
+    std::function<void(std::string, std::vector<char>)> on_read) {
   try {
     thread = std::thread([=]() {
       int recvfd, connfd = 0;
@@ -63,7 +66,7 @@ void LinuxTCP::listen() {
       struct sockaddr_in recvaddr, servaddr, cli;
 
       // socket create and verification
-      recvfd = socket(AF_INET, SOCK_STREAM, 0);
+      recvfd = socket(AF_INET, SOCK_DGRAM, 0);
       if (recvfd == -1) {
         RUNTIME_ERROR(strerror(errno));
       }
@@ -102,26 +105,63 @@ void LinuxTCP::listen() {
         }
       }
 
-      // Now server is ready to listen and verification
-      if ((::listen(recvfd, 5)) != 0) {
-        RUNTIME_ERROR(strerror(errno));
-      }
-      len = sizeof(cli);
+      struct sockaddr_in addr;
+      socklen_t socklen = sizeof(addr);
 
+      bzero(&addr, sizeof(addr));
+      if (getsockname(recvfd, (struct sockaddr *)&addr, &socklen) == -1) {
+        RUNTIME_ERROR(strerror(errno));
+      };
+      char ip[17];
+      inet_ntop(AF_INET, &addr.sin_addr, (char *)&ip, 16);
+      ip[16] = '\0';
+      printf("Listening on %s:%d\n", &ip, ntohs(addr.sin_port));
+
+      struct msghdr msg;
+      struct iovec iov[1];
+      struct cmsghdr *cmptr;
+      char *buf = (char *)malloc(1024);
+      iov[0].iov_base = buf;
+      iov[0].iov_len = 1024;
+      msg.msg_iov = iov;
+      msg.msg_iovlen = 1;
+
+      std::string cmd = std::string();
+      std::string buf_str = std::string();
+      std::string len_str = std::string();
+      std::string data_str = std::string();
+      int buf_len = 0;
+      std::vector<char> data = std::vector<char>();
       // Accept the data packet from client and verification
       while (connfd >= 0) {
-        connfd = ::accept(recvfd, (struct sockaddr *)&cli, &len);
-        char buf = '\0';
-        std::string fin = std::string();
-        while (buf != '\n') {
-          if (recv(connfd, &buf, 1, 0) == -1) {
-            RUNTIME_ERROR(strerror(errno));
-          } else {
-            fin.push_back(buf);
+
+        len = recvmsg(recvfd, &msg, 0);
+        if (len < 0) {
+          RUNTIME_ERROR(strerror(errno));
+        } else {
+          if (len != 0) {
+            buf_str = std::string(buf, buf + len);
+            if (buf_str.rfind("0:", 0) == 0) {
+              cmd = std::string(buf, buf + len);
+            }
+
+            if (buf_str.rfind("1:", 0) == 0) {
+              len_str = buf_str;
+              len_str.erase(0, 2);
+              buf_len = atoi(len_str.c_str());
+            }
+
+            if (buf_str.rfind("2:", 0) == 0) {
+              data_str = buf_str;
+              data_str.erase(0, 2);
+              data.insert(data.end(), data_str.begin(), data_str.end());
+              if (data.size() >= buf_len) {
+                on_read(cmd, data);
+                data.erase(data.begin(), data.end());
+              }
+            }
           }
         }
-        printf("%s", fin.c_str());
-        ::close(connfd);
       }
       ::close(recvfd);
     });

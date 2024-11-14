@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <exception>
+#include <iostream>
 #include <stdexcept>
 #include <stdlib.h>
 #include <unistd.h>
@@ -9,12 +10,13 @@
 int main(int argc, char *argv[]) {
   try {
     TCP *tcp = new TCP("127.0.0.1");
-    tcp->listen();
+    tcp->listen([](std::string cmd, std::vector<char> data) -> void {
+      std::cout << data.size() << std::endl;
+    });
 
+    tcp->launch("firefox");
     while (true) {
-      tcp->connect();
-      tcp->write("ping");
-      tcp->close();
+      tcp->data("firefox");
     }
   } catch (std::runtime_error &ex) {
     printf("Runtime Error: %s\n", ex.what());

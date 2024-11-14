@@ -1,14 +1,22 @@
+#include <functional>
 #include <thread>
+#include <vector>
 #define SEND_PORT "9090"
 #define RECV_PORT "9091"
 
 #include <string>
 class TCPVirtual {
+public:
+  virtual void connect() = 0;
   virtual void connect(std::string buf) = 0;
-  virtual void listen() = 0;
+  virtual void
+  listen(std::function<void(std::string, std::vector<char>)> on_read) = 0;
   virtual void close() = 0;
   virtual std::string read() = 0;
   virtual void write(const char *buf) = 0;
+
+  void launch(std::string str);
+  void data(std::string str);
 };
 
 #ifdef __linux__
@@ -19,7 +27,7 @@ class TCPVirtual {
 #include <sys/types.h>
 #include <unistd.h>
 
-class LinuxTCP : TCPVirtual {
+class LinuxTCP : public TCPVirtual {
 private:
   int recv_ip, send_ip;
   struct addrinfo hints, *recv_servinfo, *send_servinfo;
@@ -34,9 +42,9 @@ public:
   LinuxTCP(std::string addr);
   ~LinuxTCP();
 
-  void connect() { this->connect(this->addr); }
   void connect(std::string buf);
-  void listen();
+  void connect() { this->connect(this->addr); }
+  void listen(std::function<void(std::string, std::vector<char>)> on_read);
   void close();
   std::string read();
   void write(const char *buf);
