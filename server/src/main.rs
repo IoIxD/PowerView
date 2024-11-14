@@ -3,6 +3,7 @@ use std::{
     net::{SocketAddr, TcpListener, TcpStream, UdpSocket},
     sync::Arc,
     thread,
+    time::SystemTime,
 };
 
 use hashbrown::HashMap;
@@ -71,7 +72,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                     hdr.append(&mut f.to_vec());
 
                                                     socket.send(&hdr)?;
+
+                                                    println!(
+                                                        "[{}] sending data (len {})",
+                                                        SystemTime::UNIX_EPOCH
+                                                            .elapsed()?
+                                                            .as_nanos(),
+                                                        hdr.len()
+                                                    );
                                                 }
+                                                println!("socket sent");
                                             };
                                             Ok(())
                                         }()
