@@ -64,7 +64,6 @@ std::string LinuxTCP::read() {
   std::string buf = std::string();
   char tmp = '\n';
   while (recv(sockfd, &tmp, 1, MSG_WAITFORONE) > 0 && tmp != '\0') {
-    printf("%c\n", tmp);
     buf.push_back(tmp);
   }
   return buf;

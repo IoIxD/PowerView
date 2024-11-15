@@ -68,11 +68,11 @@ void Connection::recvblock(
           }
           lock.unlock();
         });
-    printf("%ld >= %d\r", ordered_buf.size() * 1500, buf_len);
+    // printf("%ld >= %d\r", ordered_buf.size() * 1500, buf_len);
 
     if (needs_retry && ordered_buf.size() >= 1) {
-      printf("\n");
-      for (auto it = ordered_buf.begin(); it != ordered_buf.end(); it++) {
+      // printf("\n");
+      for (auto it = ordered_buf.begin(); it != ordered_buf.end(); ++it) {
         buf.insert(buf.end(), it->second.begin(), it->second.end());
       }
       on_read(cmd, buf_len, buf);
