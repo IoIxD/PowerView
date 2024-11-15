@@ -1,39 +1,37 @@
 #include "udp.hpp"
 #include "../../macros.hpp"
+#include <cerrno>
 #include <sys/socket.h>
-#include <thread>
+#include <vector>
 
 namespace net {
 
 LinuxUDP::LinuxUDP(uint16_t port) {
   this->port = port;
-  // socket create and verification
-  recvfd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (recvfd == -1) {
-    RUNTIME_ERROR(strerror(errno));
-  }
-  bzero(&servaddr, sizeof(servaddr));
-
-  servaddr.sin_family = AF_INET;
-  servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  servaddr.sin_port = htons(port);
-
-  buf = (char *)malloc(1024);
-  iov[0].iov_base = buf;
-  iov[0].iov_len = 1024;
-  msg.msg_iov = iov;
-  msg.msg_iovlen = 1;
+  this->bind();
 }
 
 void LinuxUDP::bind() {
-  if ((::bind(recvfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) != 0) {
-    RUNTIME_ERROR(strerror(errno));
-  }
-  timeout.tv_sec = 10;
-  timeout.tv_usec = 0;
-  if (setsockopt(recvfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout) <
-      0) {
-    RUNTIME_ERROR(strerror(errno));
+  if (!this->open) {
+    recvfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (recvfd == -1) {
+      RUNTIME_ERROR(strerror(errno));
+    }
+    bzero(&servaddr, sizeof(servaddr));
+
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_port = htons(port);
+
+    buf = (char *)malloc(1500);
+    iov[0].iov_base = buf;
+    iov[0].iov_len = 1500;
+    msg.msg_iov = iov;
+    msg.msg_iovlen = 1;
+    if ((::bind(recvfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) != 0) {
+      RUNTIME_ERROR(strerror(errno));
+    }
+    this->open = true;
   }
 }
 
@@ -51,26 +49,30 @@ std::string LinuxUDP::address() {
   return std::string(ip);
 }
 
-void LinuxUDP::recv(std::function<void(std::string)> on_recv) {
-  // threads.push_back(std::thread([&] {
+bool LinuxUDP::recv(std::function<void(std::vector<uint8_t>, bool *)> on_recv) {
   // Accept the data packet from client and verification
-
-  // printf("recvmsg start\n");
   len = recvmsg(recvfd, &msg, MSG_DONTWAIT);
-  // printf("recvmsg end\n");
 
   if (len == -1) {
-    return;
-  }
-  if (len < 0) {
-    RUNTIME_ERROR(strerror(errno));
-  } else {
-    if (len != 0 && len != -1) {
-      on_recv(std::string(buf, buf + len));
+    if (reading) {
+      return true;
+    } else {
+      return false;
     }
+  } else if (len < 0) {
+    reading = false;
+    RUNTIME_ERROR(strerror(errno));
+  } else if (len >= 1) {
+    reading = true;
+    on_recv(std::vector<uint8_t>(buf, buf + len), &this->reading);
   }
-  // }));
+  return false;
 }
 
-LinuxUDP::~LinuxUDP() { ::close(recvfd); }
+void LinuxUDP::close() {
+  ::close(recvfd);
+  this->open = false;
+}
+
+LinuxUDP::~LinuxUDP() { this->close(); }
 } // namespace net

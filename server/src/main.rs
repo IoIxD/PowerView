@@ -3,14 +3,16 @@ use std::{
     net::{SocketAddr, TcpListener, TcpStream, UdpSocket},
     sync::Arc,
     thread,
-    time::SystemTime,
 };
 
 use hashbrown::HashMap;
 use parking_lot::Mutex;
 use xvfb::XVFB;
 
+mod argtuple;
 mod xvfb;
+
+use argtuple::{to_tuple, ArgTuple};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind("127.0.0.1:9090").unwrap();
@@ -42,56 +44,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     match *cmd {
                         // LAUNCH;prog_name
                         "LAUNCH" => {
-                            if let Some(prog) = parts.get(1) {
-                                p.lock().insert(prog.to_string(), XVFB::new(*prog)?);
+                            if let ArgTuple::One(prog) = to_tuple(parts) {
+                                p.lock().insert(prog.to_string(), XVFB::new(&prog)?);
                             }
                         }
-                        // DATA;prog_name
-                        "DATA" => {
-                            if let Some(prog) = parts.get(1) {
+                        // DATA;prog_name AND
+                        // RESEND;prog_name;offset
+                        "DATA" | "RESEND" => {
+                            let (prog, offset) = {
+                                let to_tuple = to_tuple(parts);
+                                if let ArgTuple::One(prog) = to_tuple {
+                                    (Some(prog), None)
+                                } else if let ArgTuple::Two(prog, offset) = to_tuple {
+                                    (Some(prog), Some(offset))
+                                } else {
+                                    (None, None)
+                                }
+                            };
+                            if let Some(prog) = prog {
                                 let mut p = p.lock();
-                                if let Some(win) = p.get_mut(*prog) {
-                                    if let Err(err) =
-                                        || -> Result<(), Box<dyn std::error::Error>> {
-                                            let mut ip = stream.peer_addr()?.clone();
-                                            ip.set_port(9091);
-                                            if let Ok(socket) = UdpSocket::bind(&addrs[..]) {
-                                                socket.connect(ip)?;
+                                if let Some(win) = p.get_mut(&prog) {
+                                    let mut ip = stream.peer_addr()?.clone();
+                                    ip.set_port(9091);
+                                    if let Ok(socket) = UdpSocket::bind(&addrs[..]) {
+                                        socket.connect(ip)?;
 
-                                                // COMMAND
-                                                socket.send("0:DATA".as_bytes())?;
+                                        // COMMAND
+                                        socket.send("0:DATA".as_bytes())?;
 
-                                                // SIZE
-                                                let data = win.data()?;
-                                                socket
-                                                    .send(format!("1:{}", data.len()).as_bytes())?;
+                                        // SIZE
+                                        let data = win.data()?;
+                                        socket.send(format!("1:{}", data.len()).as_bytes())?;
 
-                                                // DATA
-                                                for f in data.chunks(1024) {
-                                                    let mut hdr = "2:".as_bytes().to_vec();
-                                                    hdr.append(&mut f.to_vec());
+                                        // DATA
+                                        for f in data.chunks(1500) {
+                                            let mut hdr = "2:".as_bytes().to_vec();
+                                            hdr.append(&mut f.to_vec());
 
-                                                    socket.send(&hdr)?;
+                                            socket.send(&hdr)?;
+                                        }
 
-                                                    println!(
-                                                        "[{}] sending data (len {})",
-                                                        SystemTime::UNIX_EPOCH
-                                                            .elapsed()?
-                                                            .as_nanos(),
-                                                        hdr.len()
-                                                    );
-                                                }
-                                                println!("socket sent");
-                                            };
-                                            Ok(())
-                                        }()
-                                    {
-                                        println!(
-                                            "got error {}, removing program.",
-                                            err.to_string()
-                                        );
-                                        p.remove(*prog);
-                                    }
+                                        stream.flush()?;
+
+                                        println!("socket sent");
+                                    };
                                 }
                             }
                         }

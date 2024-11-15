@@ -1,6 +1,7 @@
 #include "conn.hpp"
 #include "net.hpp"
 #include <format>
+#include <iostream>
 
 namespace net {
 Connection::Connection() {
@@ -11,48 +12,70 @@ Connection::Connection() {
   printf("UDP listening on %s\n", this->udp->address().c_str());
 }
 
-void Connection::launch(std::string str) {
+void Connection::launch(std::string prog) {
+  this->prog = prog;
   this->tcp->connect();
-  this->tcp->write(std::format("LAUNCH;{}", str).c_str());
+  this->tcp->write(std::format("LAUNCH;{}", prog).c_str());
   this->tcp->close();
 }
 
-void Connection::data(std::string str) {
+void Connection::data() {
   this->tcp->connect();
-  this->tcp->write(std::format("DATA;{}", str).c_str());
+  this->tcp->write(std::format("DATA;{}", prog).c_str());
+  this->tcp->close();
+}
+
+void Connection::resend(size_t offset) {
+  this->tcp->connect();
+  this->tcp->write(std::format("DATA;{};{}", prog, offset).c_str());
   this->tcp->close();
 }
 
 void Connection::recvblock(
-    std::function<void(std::string, std::vector<char>)> on_read) {
-
+    std::function<void(std::string, size_t, std::vector<uint8_t>)> on_read) {
   try {
+    bool read = true;
     // printf("read start\n");
-    this->udp->recv([&](std::string value) {
-      // printf("received\n");
-      // lock.lock();
-      if (value.rfind("0:", 0) == 0) {
-        cmd = value;
-        cmd.erase(0, 2);
-      }
+    bool needs_retry =
+        this->udp->recv([&](std::vector<uint8_t> value, bool *reading) {
+          *reading = read;
+          lock.lock();
+          std::string id_str =
+              std::string(value.data(), value.data() + value.size());
 
-      if (value.rfind("1:", 0) == 0) {
-        len_str = value;
-        len_str.erase(0, 2);
-        buf_len = atoi(len_str.c_str());
-      }
+          if (id_str.find(":") == 1) {
+            id_str.erase(1);
 
-      if (value.rfind("2:", 0) == 0) {
-        data_str = value;
-        data_str.erase(0, 2);
-        buf.insert(buf.end(), data_str.begin(), data_str.end());
-        if (buf.size() >= buf_len) {
-          on_read(cmd, buf);
-          buf.erase(buf.begin(), buf.end());
-        }
-      }
-      // lock.unlock();
-    });
+            int id = atoi(id_str.c_str());
+            std::string str =
+                std::string(value.data(), value.data() + value.size());
+            switch (id) {
+            case 0:
+              cmd = str;
+              cmd.erase(cmd.find(':'));
+              break;
+            case 1:
+              len_str = str;
+              len_str.erase(0, id_str.size() + 1);
+              buf_len = atoi(len_str.c_str());
+              break;
+            case 2:
+              data_str = value;
+              buf.insert(buf.end(), data_str.begin(), data_str.end());
+              // ordered_buf.insert_or_assign(id - 3, data_str);
+              break;
+            };
+          }
+          lock.unlock();
+        });
+    printf("%ld >= %d\r", buf.size(), buf_len);
+
+    if (needs_retry && buf.size() != 0) {
+      printf("\n");
+      on_read(cmd, buf_len, buf);
+      buf.erase(buf.begin(), buf.end());
+    }
+
     // printf("finished read\n");
   } catch (std::runtime_error &ex) {
     printf("%s\n", ex.what());
@@ -60,4 +83,5 @@ void Connection::recvblock(
     printf("Unhandled Exception: %s\n", ex.what());
   }
 }
+
 } // namespace net
