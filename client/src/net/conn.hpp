@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace net {
@@ -18,6 +19,9 @@ class Connection {
   std::string chunk_str = std::string();
   std::vector<uint8_t> data_str = std::vector<uint8_t>();
   std::vector<uint8_t> buf = std::vector<uint8_t>();
+
+  std::unordered_map<ssize_t, typeof(buf)> ordered_buf =
+      std::unordered_map<ssize_t, typeof(buf)>();
   std::string prog = std::string();
 
 public:

@@ -43,8 +43,8 @@ void Connection::recvblock(
           std::string id_str =
               std::string(value.data(), value.data() + value.size());
 
-          if (id_str.find(":") == 1) {
-            id_str.erase(1);
+          if (id_str.find(":") >= 1) {
+            id_str.erase(id_str.find(":"));
 
             int id = atoi(id_str.c_str());
             std::string str =
@@ -59,19 +59,22 @@ void Connection::recvblock(
               len_str.erase(0, id_str.size() + 1);
               buf_len = atoi(len_str.c_str());
               break;
-            case 2:
+            default:
               data_str = value;
-              buf.insert(buf.end(), data_str.begin(), data_str.end());
-              // ordered_buf.insert_or_assign(id - 3, data_str);
+              // buf.insert(buf.end(), data_str.begin(), data_str.end());
+              ordered_buf.insert_or_assign(id, data_str);
               break;
             };
           }
           lock.unlock();
         });
-    printf("%ld >= %d\r", buf.size(), buf_len);
+    printf("%ld >= %d\r", ordered_buf.size() * 1500, buf_len);
 
-    if (needs_retry && buf.size() != 0) {
+    if (needs_retry && ordered_buf.size() >= 1) {
       printf("\n");
+      for (auto it = ordered_buf.begin(); it != ordered_buf.end(); it++) {
+        buf.insert(buf.end(), it->second.begin(), it->second.end());
+      }
       on_read(cmd, buf_len, buf);
       buf.erase(buf.begin(), buf.end());
     }
