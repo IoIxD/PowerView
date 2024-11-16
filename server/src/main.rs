@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                         for f in chunks {
                                             let mut hdr = format!("{}:", i).as_bytes().to_vec();
                                             hdr.append(&mut f.to_vec());
-                                            socket.send(&hdr)?;
+                                            socket.send(&f)?;
                                             i += 1;
                                         }
 

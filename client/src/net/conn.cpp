@@ -62,9 +62,13 @@ void Connection::recvblock(
               buf_len = atoi(len_str.c_str());
               break;
             default:
-              data_str = value;
-              // buf.insert(buf.end(), data_str.begin(), data_str.end());
-              ordered_buf.insert_or_assign(id, data_str);
+              data_str = str;
+              // todo: THIS IS LITERALLY WHAT I DO FOR THE LENGTH STRING UP
+              // THERE AND IT WORKS FINE?? WHY THE FUCK DOES IT CORRUPT THE
+              // IMAGE HERE??? :sob:
+              data_str.erase(0, id_str.size() + 1);
+              ordered_buf.insert_or_assign(
+                  id, std::vector<uint8_t>(data_str.begin(), data_str.end()));
               break;
             };
           }
