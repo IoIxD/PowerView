@@ -19,7 +19,7 @@ impl XVFB {
         loop {
             let mut command = Command::new("Xvfb");
             let disp = format!(":{}", i);
-            let command = command.args(vec![disp.as_str(), "-screen", "0", "320x240x24"]);
+            let command = command.args(vec![disp.as_str(), "-screen", "0", "300x300x24"]);
 
             let mut ch = command
                 .stdout(Stdio::piped())

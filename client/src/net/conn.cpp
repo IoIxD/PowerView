@@ -2,6 +2,8 @@
 #include "net.hpp"
 #include <format>
 #include <iostream>
+#include <map>
+#include <string>
 
 namespace net {
 Connection::Connection() {
@@ -71,8 +73,9 @@ void Connection::recvblock(
     // printf("%ld >= %d\r", ordered_buf.size() * 1500, buf_len);
 
     if (needs_retry && ordered_buf.size() >= 1) {
-      // printf("\n");
-      for (auto it = ordered_buf.begin(); it != ordered_buf.end(); ++it) {
+      std::map<int, typeof(buf)> sorted(ordered_buf.begin(), ordered_buf.end());
+
+      for (auto it = sorted.begin(); it != sorted.end(); ++it) {
         buf.insert(buf.end(), it->second.begin(), it->second.end());
       }
       on_read(cmd, buf_len, buf);
