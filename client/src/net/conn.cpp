@@ -2,6 +2,7 @@
 #include "net.hpp"
 #include <format>
 #include <iostream>
+#include <string>
 
 namespace net {
 Connection::Connection() {
@@ -40,43 +41,50 @@ void Connection::recvblock(
         this->udp->recv([&](std::vector<uint8_t> value, bool *reading) {
           *reading = read;
           lock.lock();
-          std::string id_str =
+          std::string str =
               std::string(value.data(), value.data() + value.size());
 
-          if (id_str.find(":") >= 1) {
-            id_str.erase(id_str.find(":"));
+          std::string id_str = str;
 
+          if (id_str.rfind("DATA:", 5) >= 0) {
+            // get packet number
+            id_str.erase(id_str.begin(), id_str.begin() + 5);
             int id = atoi(id_str.c_str());
-            std::string str =
-                std::string(value.data(), value.data() + value.size());
-            switch (id) {
-            case 0:
-              cmd = str;
-              cmd.erase(cmd.find(':'));
-              break;
-            case 1:
-              len_str = str;
-              len_str.erase(0, id_str.size() + 1);
-              buf_len = atoi(len_str.c_str());
-              break;
-            default:
-              data_str = value;
-              // buf.insert(buf.end(), data_str.begin(), data_str.end());
-              ordered_buf.insert_or_assign(id, data_str);
-              break;
-            };
+
+            // printf("ID: %d\n", id);
+
+            // get packet length
+            len_str = str;
+            len_str.erase(0, len_str.find(";") + 1);
+            auto data_start = len_str.find(";");
+            len_str.erase(data_start);
+            // std::cout << "GOT LENGTH " << len_str << std::endl;
+            buf_len = atoi(len_str.c_str());
+
+            // append the whole packet to the buffer.
+            data_str = value;
+            data_str.erase(data_str.begin(), data_str.begin() + data_start);
+            // printf("data_str.size(): %ld\n", data_str.size());
+
+            for (int i = 0; i < 25; i++) {
+              std::cout << std::to_string(data_str.at(i)) << ",";
+            }
+            std::cout << std::endl;
+            // printf("\n%ld\n", data_str.size());
+            ordered_buf.insert_or_assign(id, data_str);
           }
           lock.unlock();
         });
-    // printf("%ld >= %d\r", ordered_buf.size() * 1500, buf_len);
+    // printf("%ld >= %d\n ", ordered_buf.size(), buf_len);
 
     if (needs_retry && ordered_buf.size() >= 1) {
-      // printf("\n");
-      for (auto it = ordered_buf.begin(); it != ordered_buf.end(); ++it) {
+      for (it = ordered_buf.begin(); it != ordered_buf.end(); ++it) {
         buf.insert(buf.end(), it->second.begin(), it->second.end());
       }
+
       on_read(cmd, buf_len, buf);
       buf.erase(buf.begin(), buf.end());
+      ordered_buf.erase(ordered_buf.begin(), ordered_buf.end());
     }
 
     // printf("finished read\n");

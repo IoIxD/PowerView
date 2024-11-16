@@ -5,11 +5,9 @@
 
 #include <cerrno>
 #include <cstdlib>
-#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <vector>
 
 namespace net {
 

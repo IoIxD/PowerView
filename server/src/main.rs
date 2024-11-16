@@ -67,20 +67,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     let mut ip = stream.peer_addr()?.clone();
                                     ip.set_port(9091);
                                     if let Ok(socket) = UdpSocket::bind(&addrs[..]) {
-                                        socket.connect(ip)?;
-
-                                        // COMMAND
-                                        socket.send("0:DATA".as_bytes())?;
-
-                                        // SIZE
                                         let data = win.data()?;
                                         let chunks = data.chunks(1500);
-                                        socket.send(format!("1:{}", data.len()).as_bytes())?;
 
-                                        // DATA
-                                        let mut i = 2;
+                                        socket.connect(ip)?;
+                                        let mut i = 0;
                                         for f in chunks {
-                                            let mut hdr = format!("{}:", i).as_bytes().to_vec();
+                                            let mut hdr = format!("DATA:{};{};", i, data.len())
+                                                .as_bytes()
+                                                .to_vec();
                                             hdr.append(&mut f.to_vec());
                                             socket.send(&hdr)?;
                                             i += 1;

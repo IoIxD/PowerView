@@ -10,8 +10,7 @@ class Connection {
   TCP *tcp;
   UDP *udp;
 
-  int buf_len = 0;
-  long cur_buf_len = 0;
+  int buf_len = -1;
 
   std::mutex lock = std::mutex();
   std::string cmd = std::string();
@@ -22,6 +21,9 @@ class Connection {
 
   std::unordered_map<ssize_t, typeof(buf)> ordered_buf =
       std::unordered_map<ssize_t, typeof(buf)>();
+
+  std::unordered_map<ssize_t, typeof(buf)>::iterator it;
+
   std::string prog = std::string();
 
 public:

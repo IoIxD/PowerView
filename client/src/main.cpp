@@ -1,4 +1,5 @@
 #include "macros.hpp"
+#include <GL/freeglut_std.h>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -16,15 +17,16 @@
 
 using namespace net;
 
-#define WIDTH 320
-#define HEIGHT 240
+int WIDTH = 320;
+int HEIGHT = 240;
 
 Connection *conn = NULL;
 std::mutex *conn_mutex = new std::mutex();
 TCP *tcp = new TCP("127.0.0.1");
 GLuint textureID;
 int window;
-GLint format = GL_RGB;
+#define FORMAT GL_RGB
+#define INTERNAL_FORMAT GL_RGB
 std::mutex datamutex = std::mutex();
 uint8_t *d = (uint8_t *)malloc(WIDTH * HEIGHT * 3);
 size_t size = 0;
@@ -34,8 +36,8 @@ void InitTexture(GLsizei width, GLsizei height, uint8_t *data) {
   // glActiveTexture(GL_TEXTURE);
   GLCMD(glGenTextures(1, &textureID));
   GLCMD(glBindTexture(GL_TEXTURE_2D, textureID));
-  GLCMD(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
-                     GL_UNSIGNED_BYTE, data));
+  GLCMD(glTexImage2D(GL_TEXTURE_2D, 0, FORMAT, width, height, 0,
+                     INTERNAL_FORMAT, GL_UNSIGNED_BYTE, data));
   GLCMD(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
   GLCMD(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
 }
@@ -43,8 +45,8 @@ void InitTexture(GLsizei width, GLsizei height, uint8_t *data) {
 void UpdateTexture(GLsizei width, GLsizei height, uint8_t *data) {
   // GLCMD(glGenTextures(1, &textureID));
   GLCMD(glBindTexture(GL_TEXTURE_2D, textureID));
-  GLCMD(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
-                     GL_UNSIGNED_BYTE, data));
+  GLCMD(glTexImage2D(GL_TEXTURE_2D, 0, FORMAT, width, height, 0,
+                     INTERNAL_FORMAT, GL_UNSIGNED_BYTE, data));
   GLCMD(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
   GLCMD(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
 }
@@ -85,6 +87,24 @@ void display() {
   GLCMD(glPopMatrix());
 }
 
+void key(unsigned char key, int x, int y) {
+  switch (key) {
+  case 'a':
+    --WIDTH;
+    break;
+  case 'd':
+    ++WIDTH;
+    break;
+  case 'w':
+    --HEIGHT;
+    break;
+  case 's':
+    ++HEIGHT;
+    break;
+  };
+  // printf("%d, %d\n", WIDTH, HEIGHT);
+}
+
 int main(int argc, char *argv[]) {
   try {
 
@@ -95,7 +115,7 @@ int main(int argc, char *argv[]) {
         conn->recvblock([=](std::string cmd, size_t buf_len,
                             std::vector<uint8_t> data) -> void {
           size = data.size();
-          printf("%ld / %ld\n", size, buf_len);
+          // printf("%ld / %ld\n", size, buf_len);
           d = data.data();
 
           sending = false;
@@ -116,7 +136,7 @@ int main(int argc, char *argv[]) {
     // should call the function display().
     GLCMD(glutIdleFunc(updateData));
     GLCMD(glutDisplayFunc(display));
-
+    GLCMD(glutKeyboardFunc(key));
     conn->launch("glxgears");
 
     InitTexture(WIDTH, HEIGHT, NULL);
