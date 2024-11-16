@@ -63,10 +63,9 @@ void Connection::recvblock(
               break;
             default:
               data_str = str;
-              // todo: THIS IS LITERALLY WHAT I DO FOR THE LENGTH STRING UP
-              // THERE AND IT WORKS FINE?? WHY THE FUCK DOES IT CORRUPT THE
-              // IMAGE HERE??? :sob:
-              data_str.erase(0, id_str.size() + 1);
+              auto placeholder = id_str.size();
+              data_str.erase(0, placeholder + 1);
+
               ordered_buf.insert_or_assign(
                   id, std::vector<uint8_t>(data_str.begin(), data_str.end()));
               break;

@@ -23,9 +23,9 @@ void LinuxUDP::bind() {
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port = htons(port);
 
-    buf = (char *)malloc(1500);
+    buf = (char *)malloc(2503);
     iov[0].iov_base = buf;
-    iov[0].iov_len = 1500;
+    iov[0].iov_len = 2504;
     msg.msg_iov = iov;
     msg.msg_iovlen = 1;
     if ((::bind(recvfd, (struct sockaddr *)&servaddr, sizeof(servaddr))) != 0) {

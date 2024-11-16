@@ -74,15 +74,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                         // SIZE
                                         let data = win.data()?;
-                                        let chunks = data.chunks(1500);
+                                        let chunks = data.chunks(2500);
                                         socket.send(format!("1:{}", data.len()).as_bytes())?;
 
                                         // DATA
-                                        let mut i = 2;
+                                        let mut i = 100;
                                         for f in chunks {
-                                            let mut hdr = format!("{}:", i).as_bytes().to_vec();
+                                            let fuck_you = format!("{:03}:", i);
+                                            println!("{}", fuck_you);
+                                            let mut hdr = fuck_you.as_bytes().to_vec();
                                             hdr.append(&mut f.to_vec());
-                                            socket.send(&f)?;
+                                            socket.send(&hdr)?;
                                             i += 1;
                                         }
 
